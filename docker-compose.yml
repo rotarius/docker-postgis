@@ -18,7 +18,7 @@ services:
       - PASSWORD_AUTHENTICATION=md5
       - FORCE_SSL=false
       - ALLOW_IP_RANGE=0.0.0.0/0
-      # Add exxxxxtensions you need to be enabled by default in the DB. Default are the five specified below
+      # Add extensions you need to be enabled by default in the DB. Default are the five specified below
       - POSTGRES_MULTIPLE_EXTENSIONS=postgis,hstore,postgis_topology,postgis_raster,pgrouting
       - RUN_AS_ROOT=true
     ports:
