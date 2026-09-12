@@ -28,7 +28,7 @@ future upstream merges without conflicts.
 |----------|------|---------|-------|
 | `gis` | `docker` (superuser) | - | Default database created on first init (`POSTGRES_DB`), has the PostGIS/pgRouting extensions enabled. |
 | `openproject` | `openproject` (scoped) | [docker-openproject](https://github.com/rotarius/docker-openproject) | `DATABASE_URL` in its `.env`. Own role, not the shared superuser. |
-| `ente_db` | `docker` (superuser) | [docker-ente](https://github.com/rotarius/docker-ente) | `db.*` in its `museum.yaml`. Currently uses the shared superuser rather than a scoped role - see its README for the trade-off. |
+| `ente_db` | `ente_db` (scoped) | [docker-ente](https://github.com/rotarius/docker-ente) | `db.*` in its `museum.yaml`. Own role, not the shared superuser. |
 
 ## Adding a database for a new app
 
@@ -53,9 +53,8 @@ Dumps are stored in the `dbbackups` volume, filenames prefixed `PG_db`
 
 ## Security notes
 
-- Apps using a scoped role (like `openproject`) only ever see their own
-  database. Apps using the shared superuser directly (like `ente_db`
-  currently does) can read/write every database in the instance, not just
-  their own.
+- Every app here uses a scoped role, so it only ever sees its own database.
+  An app using the shared superuser directly would be able to read/write
+  every database in the instance, not just its own - avoid that for new apps.
 - Restarting/updating this instance (e.g. for one app's needs) briefly drops
   the connection for every other app using it too, regardless of role.
