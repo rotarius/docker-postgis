@@ -15,26 +15,32 @@ future upstream merges without conflicts.
   internet, so port 25432 is not reachable from outside the server despite
   `ALLOW_IP_RANGE=0.0.0.0/0` in the container - only from the host itself or
   other containers on the same Docker host/network.
-- Credentials: superuser `docker` / `docker` (see `POSTGRES_USER` /
-  `POSTGRES_PASS` in `docker-compose.yml`). Same user/password work for every
-  database in this instance - there is no per-app access isolation.
+- The instance superuser is `docker` / `docker` (see `POSTGRES_USER` /
+  `POSTGRES_PASS` in `docker-compose.yml`), used for admin tasks (creating
+  databases/roles). Apps should get their own role scoped to their own
+  database rather than using this superuser directly - see
+  [docker-openproject](https://github.com/rotarius/docker-openproject) for
+  the pattern (own `openproject` role + `openproject` database, not shared).
 
 ## Existing databases
 
-| Database | Used by | Notes |
-|----------|---------|-------|
-| `gis` | - | Default database created on first init (`POSTGRES_DB`), has the PostGIS/pgRouting extensions enabled. |
-| `op` | [docker-openproject](https://github.com/rotarius/docker-openproject) | `OPENPROJECT_DATABASE_URL` in its docker-compose.yml. |
-| `ente_db` | [docker-ente](https://github.com/rotarius/docker-ente) | `db.name` in its `museum.yaml`. |
+| Database | Role | Used by | Notes |
+|----------|------|---------|-------|
+| `gis` | `docker` (superuser) | - | Default database created on first init (`POSTGRES_DB`), has the PostGIS/pgRouting extensions enabled. |
+| `openproject` | `openproject` (scoped) | [docker-openproject](https://github.com/rotarius/docker-openproject) | `DATABASE_URL` in its `.env`. Own role, not the shared superuser. |
+| `ente_db` | `docker` (superuser) | [docker-ente](https://github.com/rotarius/docker-ente) | `db.*` in its `museum.yaml`. Currently uses the shared superuser rather than a scoped role - see its README for the trade-off. |
 
 ## Adding a database for a new app
 
+Prefer a scoped role over the shared superuser (see `openproject` above):
+
 ```bash
-docker compose exec db psql -U docker -d gis -c "CREATE DATABASE <name>;"
+docker compose exec db psql -U docker -d gis -c "CREATE ROLE <app> WITH LOGIN PASSWORD '<password>';"
+docker compose exec db psql -U docker -d gis -c "CREATE DATABASE <app> OWNER <app>;"
 ```
 
-Then point the new app at host `db`, port `5432`, database `<name>`, using
-the same `docker`/`docker` credentials - and add a row to the table above.
+Then point the new app at host `db`, port `5432`, database `<app>`, user
+`<app>` - and add a row to the table above.
 
 ## Backup
 
@@ -47,8 +53,9 @@ Dumps are stored in the `dbbackups` volume, filenames prefixed `PG_db`
 
 ## Security notes
 
-- All apps share one superuser (`docker`/`docker`), hardcoded in this
-  repo's `docker-compose.yml`. Anyone with this password can read/write
-  every database in the instance, not just their own app's.
+- Apps using a scoped role (like `openproject`) only ever see their own
+  database. Apps using the shared superuser directly (like `ente_db`
+  currently does) can read/write every database in the instance, not just
+  their own.
 - Restarting/updating this instance (e.g. for one app's needs) briefly drops
-  the connection for every other app using it too.
+  the connection for every other app using it too, regardless of role.
